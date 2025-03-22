@@ -1,0 +1,7 @@
+node_modules
+coverage
+types
+test
+eslint.config.js
+jest.config.js
+tsconfig.json

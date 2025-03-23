@@ -83,6 +83,8 @@ const pool = new WorkerPool('./worker', null, {
   minPoolSize: 1, // optional: minimum number of workers in the pool, default is 2, pool will not shrink if the number of workers are already minimum
   maxPoolSize: 4, // optional: maximum number of workers in the pool, default is CPU cores * 2, pool will not grow if the number of workers are already maximum
 });
+// Make sure .init() is called
+await pool.init();
 ```
 
 #### Run tasks with the pool

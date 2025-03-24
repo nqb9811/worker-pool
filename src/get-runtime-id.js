@@ -1,18 +1,17 @@
-let timestamp = Date.now();
-let fraction = 1;
+let elapsed = performance.now();
+let counter = 0;
 
 function getRuntimeID() {
-  const now = Date.now();
+  const now = performance.now();
 
-  if (now !== timestamp) {
-    timestamp = now;
-    fraction = 1;
-    return timestamp;
+  if (elapsed !== now) {
+    elapsed = now;
+    counter = 0;
+  } else {
+    counter++;
   }
 
-  fraction = fraction / 10;
-
-  return timestamp + fraction;
+  return elapsed + counter;
 }
 
 module.exports = {

@@ -1,17 +1,17 @@
-let elapsed = performance.now();
+let timestamp = Date.now();
 let counter = 0;
 
 function getRuntimeID() {
-  const now = performance.now();
+  const now = Date.now();
 
-  if (elapsed !== now) {
-    elapsed = now;
+  if (timestamp !== now) {
+    timestamp = now;
     counter = 0;
   } else {
     counter++;
   }
 
-  return elapsed + counter;
+  return `${timestamp}.${counter}`;
 }
 
 module.exports = {

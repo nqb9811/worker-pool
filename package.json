@@ -1,6 +1,6 @@
 {
   "name": "@nqb/worker-pool",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
@@ -12,17 +12,21 @@
     "Worker",
     "Thread",
     "Pool",
-    "CPU-intensive"
+    "CPU-intensive",
+    "Parallelism"
   ],
   "author": {
     "name": "Bao Nguyen",
     "email": "nqb9811@gmail.com"
   },
   "license": "MIT",
-  "description": "Simple Node.js worker pool to utilize threads for CPU-intensive tasks",
+  "description": "Node.js worker pool to utilize threads for CPU-intensive tasks",
   "repository": {
     "type": "git",
     "url": "https://github.com/nqb9811/worker-pool.git"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^4.2.0",

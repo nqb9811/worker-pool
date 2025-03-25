@@ -1,6 +1,6 @@
 # Worker Pool
 
-Simple Node.js worker pool to utilize threads for CPU-intensive tasks
+Node.js worker pool to utilize threads for CPU-intensive tasks
 
 ## Features
 
@@ -10,7 +10,7 @@ Fixed pool size or autoscale with min and max pool size
 
 Execute tasks by priority
 
-Cancel tasks
+Cancel tasks (if a task is already sent to a worker, its logic still run, although the task is aborted and rejected)
 
 Handle task events from worker during processing (usually helpful for tracking progress)
 

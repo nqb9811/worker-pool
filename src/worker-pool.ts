@@ -1,0 +1,328 @@
+import { Worker, WorkerOptions } from 'node:worker_threads';
+import { CircularBuffer } from './circular-buffer';
+import { Task, WorkerMessageType } from './worker-task-descriptor';
+import { Queue } from './queue';
+import { PriorityQueue } from './priority-queue';
+import { PromiseResolvers } from './promise-resolvers';
+import { AbortException } from './abort-exception';
+
+/** Pool of worker threads to run tasks in parallel in round-robin manner. */
+export class WorkerPool {
+    private workerPath: string;
+    private workerOptions: WorkerOptions;
+    private workers = new Set<Worker>();
+    private idleWorkers: CircularBuffer<Worker>;
+    private runningTaskByWorker = new Map<Worker, Task>();
+    private acquiringWorkerResolvers = new Queue<PromiseResolvers<Worker>>();
+    private acquiredWorkers = new Set<Worker>();
+    private taskQueue: Queue<Task> | PriorityQueue<Task>;
+    private runningTasks = new Set<Task>;
+    private taskRegistry = new Map<Task, {
+        resolvers: PromiseResolvers;
+        meta: {
+            aborted: boolean;
+        },
+        sharedBuffer: SharedArrayBuffer;
+        abort: () => void;
+    }>();
+    private closed = false;
+
+    constructor(params: {
+        poolSize: number;
+        workerPath: string;
+        workerOptions?: WorkerOptions;
+        usePriorityQueue?: boolean;
+    }) {
+        console.log(params);
+        this.workerPath = params.workerPath;
+        this.workerOptions = params.workerOptions ?? {};
+        this.idleWorkers = new CircularBuffer(params.poolSize);
+        this.taskQueue = params.usePriorityQueue
+            ? new PriorityQueue((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+            : new Queue();
+        for (let i = 0; i < params.poolSize; i++) {
+            this.addNewWorker();
+        }
+    }
+
+    /**
+     * Run a task with acquired worker or an idle worker,
+     * to queue it to be run later when a worker becomes idle.
+     */
+    public async runTask(task: Task, acquiredWorker?: Worker): Promise<any> {
+        let taskInfo = this.taskRegistry.get(task);
+        if (!taskInfo) {
+            const resolvers = new PromiseResolvers();
+            const meta = { aborted: false };
+            const sharedBuffer = new SharedArrayBuffer(1);
+            const abort = () => {
+                meta.aborted = true;
+                resolvers.reject(new AbortException());
+
+                if (this.runningTasks.has(task)) {
+                    const view = new Uint8Array(sharedBuffer);
+                    view[0] = 1;
+                    this.runningTasks.delete(task);
+                }
+
+                this.taskRegistry.delete(task);
+
+                if (task.abortSignal) {
+                    task.abortSignal.removeEventListener('abort', abort);
+                }
+            };
+
+            taskInfo = { resolvers, meta, sharedBuffer, abort };
+            this.taskRegistry.set(task, taskInfo);
+
+            if (task.abortSignal) {
+                task.abortSignal.addEventListener('abort', abort);
+            }
+        }
+
+        let worker = acquiredWorker ?? this.idleWorkers.pop();
+        if (worker) {
+            this.runningTasks.add(task);
+            this.runningTaskByWorker.set(worker, task);
+
+            try {
+                worker.postMessage({
+                    type: WorkerMessageType.TASK,
+                    payload: {
+                        type: task.type,
+                        data: task.data,
+                        sharedBuffer: taskInfo.sharedBuffer,
+                    },
+                }, task.transferList);
+            } catch (error) {
+                this.runningTasks.delete(task);
+                this.runningTaskByWorker.delete(worker);
+                this.taskRegistry.delete(task);
+                taskInfo.resolvers.reject(error);
+            }
+        } else {
+            if (task.abortSignal?.aborted) {
+                taskInfo.resolvers.reject(new AbortException());
+                this.taskRegistry.delete(task);
+            } else {
+                this.taskQueue.push(task);
+            }
+        }
+
+        return taskInfo.resolvers.promise;
+    }
+
+    /**
+     * Acquire an idle worker from pool for dedicated usage.
+     * Acquired worker is then passed back to the pool to run tasks.
+     * The only difference is that when it completes the task,
+     * it is not added back to idle list of the pool,
+     * until caller releases it with `releaseWorker(worker)`.
+     */
+    public async acquireWorker(): Promise<Worker> {
+        if (this.closed) {
+            throw new Error('Pool closed');
+        }
+
+        const worker = this.idleWorkers.pop();
+        if (worker) {
+            this.acquiredWorkers.add(worker);
+            return worker;
+        }
+
+        const resolvers = new PromiseResolvers<Worker>();
+        this.acquiringWorkerResolvers.push(resolvers);
+
+        return resolvers.promise;
+    }
+
+    /**
+     * Release an acquired worker back to pool.
+     * Must call after acquiring worker and finish dedicated usage.
+     * Otherwise, pool would lost one worker to run tasks.
+     */
+    public releaseWorker(worker: Worker) {
+        if (this.closed) {
+            worker.terminate();
+            return;
+        }
+
+        if (!this.acquiredWorkers.has(worker)) {
+            return;
+        }
+
+        this.acquiredWorkers.delete(worker);
+
+        const acquiringWorkerResolvers = this.acquiringWorkerResolvers.pop();
+        if (acquiringWorkerResolvers) {
+            acquiringWorkerResolvers.resolve(worker);
+            this.acquiredWorkers.add(worker);
+        } else {
+            this.idleWorkers.push(worker);
+            this.runQueuedTask();
+        }
+    }
+
+    /** Get current pool stats of workers and tasks. */
+    public stats() {
+        return {
+            availableWorkers: this.workers.size,
+            idleWorkers: this.idleWorkers.size(),
+            runningTasks: this.runningTasks.size,
+            queuedTasks: this.taskQueue.size(),
+            closed: this.closed,
+        };
+    }
+
+    /** Close pool, reject all running and queued tasks, destroy all workers. */
+    public close() {
+        if (this.closed) {
+            return;
+        }
+
+        for (const [task, taskInfo] of this.taskRegistry) {
+            taskInfo.resolvers.reject(new Error('Pool closed'));
+        }
+        this.taskRegistry.clear();
+        this.runningTasks.clear();
+        this.taskQueue.clear();
+
+        for (const worker of this.workers) {
+            worker.terminate();
+        }
+        this.workers.clear();
+        this.idleWorkers.clear();
+        this.runningTaskByWorker.clear();
+        this.acquiredWorkers.clear();
+
+        let acquiringWorkerResolvers: PromiseResolvers<Worker> | undefined;
+        while (acquiringWorkerResolvers = this.acquiringWorkerResolvers.pop()) {
+            acquiringWorkerResolvers.reject(new Error('Pool closed'));
+        }
+
+        this.closed = true;
+    }
+
+    /** Add a new worker to pool, to initialize pool or replace an error worker. */
+    private addNewWorker() {
+        if (this.closed) {
+            return;
+        }
+
+        const worker = new Worker(this.workerPath, {
+            ...this.workerOptions,
+            ...(this.workerPath.endsWith('.ts') ? { execArgv: ['-r', 'ts-node/register'] } : {})
+        })
+            .on('message', (msg) => {
+                const task = this.runningTaskByWorker.get(worker);
+                if (task) {
+                    const taskInfo = this.taskRegistry.get(task);
+                    if (taskInfo && !taskInfo.meta.aborted) {
+                        const msgType = msg.type;
+                        const msgPayload = msg.payload;
+
+                        if (msgType === WorkerMessageType.RESULT) {
+                            const error = msgPayload.error;
+                            const data = msgPayload.data;
+
+                            if (error) {
+                                taskInfo.resolvers.reject(error);
+                            } else {
+                                taskInfo.resolvers.resolve(data);
+                            }
+
+                            this.runningTasks.delete(task);
+                            this.taskRegistry.delete(task);
+
+                            if (task.abortSignal) {
+                                task.abortSignal.removeEventListener('abort', taskInfo.abort);
+                            }
+                        } else if (msgType === WorkerMessageType.EVENT) {
+                            const event = msgPayload.event;
+                            const data = msgPayload.data;
+
+                            if (task.onEvent) {
+                                task.onEvent(event, data);
+                            }
+
+                            return;
+                        } else {
+                            console.error(`Invalid worker message type "${msgType}"`);
+                            process.exit(1);
+                        }
+                    }
+
+                    this.runningTaskByWorker.delete(worker);
+                }
+
+                if (this.acquiredWorkers.has(worker)) {
+                    return;
+                }
+
+                const acquiringWorkerResolvers = this.acquiringWorkerResolvers.pop();
+                if (acquiringWorkerResolvers) {
+                    acquiringWorkerResolvers.resolve(worker);
+                    this.acquiredWorkers.add(worker);
+                } else {
+                    this.idleWorkers.push(worker);
+                    this.runQueuedTask();
+                }
+            })
+            .on('error', (error) => {
+                const task = this.runningTaskByWorker.get(worker);
+
+                if (task) {
+                    const taskInfo = this.taskRegistry.get(task);
+
+                    if (taskInfo) {
+                        taskInfo.resolvers.reject(error);
+                        this.taskRegistry.delete(task);
+                    }
+
+                    this.runningTasks.delete(task);
+                    this.runningTaskByWorker.delete(worker);
+                }
+
+                worker.terminate();
+                this.workers.delete(worker);
+                this.acquiredWorkers.delete(worker);
+
+                const idleWorkers: Worker[] = [];
+                let idleWorker: Worker | undefined;
+                while (idleWorker = this.idleWorkers.pop()) {
+                    if (idleWorker !== worker) {
+                        idleWorkers.push(idleWorker);
+                    }
+                }
+                for (const worker of idleWorkers) {
+                    this.idleWorkers.push(worker);
+                }
+
+                this.addNewWorker();
+            });
+
+        this.workers.add(worker);
+        this.idleWorkers.push(worker);
+    }
+
+    /** Run any queued task as soon as a worker becomes idle. */
+    private runQueuedTask() {
+        if (this.closed) {
+            return;
+        }
+
+        while (true) {
+            const task = this.taskQueue.pop();
+            if (!task) {
+                return;
+            }
+
+            if (!this.taskRegistry.has(task)) {
+                continue;
+            }
+
+            this.runTask(task);
+            return;
+        }
+    }
+}

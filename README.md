@@ -26,7 +26,7 @@ See [test/worker-pool.ts](./test/worker-pool.ts)
 
 ## Benchmark
 
-See [bench/fifo.ts](./bench/fifo.ts) and [bench/priority.ts](./bench/priority.ts)
+See [benchmark/fifo.ts](./benchmark/fifo.ts) and [benchmark/priority.ts](./benchmark/priority.ts)
 
 ## License
 

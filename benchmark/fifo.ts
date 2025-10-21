@@ -16,6 +16,7 @@ import { initWorker } from '../src/init-worker';
         const pool = new WorkerPool({
             poolSize: 4,
             workerPath: __filename,
+            usePriorityQueue: false,
         });
         const numTasks = 1e6;
         const promises: Promise<number>[] = [];
@@ -24,13 +25,12 @@ import { initWorker } from '../src/init-worker';
             promises.push(pool.runTask({
                 type: 'add',
                 data: { a: Math.random(), b: Math.random() },
-                priority: Math.random(),
             }));
         }
         await Promise.all(promises);
         const end = performance.now();
         const elapsed = end - start;
-        console.log('Task per second:', numTasks * 1e3 / elapsed);
+        console.log('🚀 FIFO - Task per second:', numTasks * 1e3 / elapsed);
         pool.close();
     }
 })();

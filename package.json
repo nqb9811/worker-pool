@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "ts-node test/all.ts"
+    "test": "ts-node test/all.ts",
+    "benchmark": "ts-node benchmark/all.ts"
   },
   "keywords": [],
   "author": {

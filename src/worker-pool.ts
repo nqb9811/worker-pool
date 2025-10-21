@@ -33,11 +33,10 @@ export class WorkerPool {
         workerOptions?: WorkerOptions;
         usePriorityQueue?: boolean;
     }) {
-        console.log(params);
         this.workerPath = params.workerPath;
         this.workerOptions = params.workerOptions ?? {};
         this.idleWorkers = new CircularBuffer(params.poolSize);
-        this.taskQueue = params.usePriorityQueue
+        this.taskQueue = (params.usePriorityQueue ?? true)
             ? new PriorityQueue((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
             : new Queue();
         for (let i = 0; i < params.poolSize; i++) {
@@ -94,6 +93,10 @@ export class WorkerPool {
                         sharedBuffer: taskInfo.sharedBuffer,
                     },
                 }, task.transferList);
+
+                if (task.onEvent) {
+                    task.onEvent('sent to worker', { task, worker });
+                }
             } catch (error) {
                 this.runningTasks.delete(task);
                 this.runningTaskByWorker.delete(worker);
@@ -269,20 +272,6 @@ export class WorkerPool {
                 }
             })
             .on('error', (error) => {
-                const task = this.runningTaskByWorker.get(worker);
-
-                if (task) {
-                    const taskInfo = this.taskRegistry.get(task);
-
-                    if (taskInfo) {
-                        taskInfo.resolvers.reject(error);
-                        this.taskRegistry.delete(task);
-                    }
-
-                    this.runningTasks.delete(task);
-                    this.runningTaskByWorker.delete(worker);
-                }
-
                 worker.terminate();
                 this.workers.delete(worker);
                 this.acquiredWorkers.delete(worker);
@@ -298,11 +287,26 @@ export class WorkerPool {
                     this.idleWorkers.push(worker);
                 }
 
-                this.addNewWorker();
+                setImmediate(() => {
+                    this.addNewWorker();
+                });
+
+                const task = this.runningTaskByWorker.get(worker);
+                if (task) {
+                    const taskInfo = this.taskRegistry.get(task);
+                    if (taskInfo) {
+                        taskInfo.resolvers.reject(error);
+                        this.taskRegistry.delete(task);
+                    }
+
+                    this.runningTasks.delete(task);
+                    this.runningTaskByWorker.delete(worker);
+                }
             });
 
         this.workers.add(worker);
         this.idleWorkers.push(worker);
+        this.runQueuedTask();
     }
 
     /** Run any queued task as soon as a worker becomes idle. */

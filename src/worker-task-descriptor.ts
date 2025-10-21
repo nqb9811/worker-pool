@@ -28,7 +28,11 @@ export type WorkerTaskHandler = (params: {
     type: string;
     /** Task input data. */
     data: any;
-    /** Emit task-related event to main thread. */
+    /**
+     * Emit task-related event to main thread.
+     * There is one reserved event "sent to worker" emitted when task is sent to worker,
+     * with event data including the task itself and the worker which runs the task.
+     */
     emitEvent: (event: string, data: any, transferList?: Transferable[]) => void;
     /**
      * Check if task is aborted by main thread and throw

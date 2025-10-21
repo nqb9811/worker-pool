@@ -20,6 +20,10 @@ Acquire workers for dedicated usage
 
 No dynamic pool size. So far I do not think it is useful. Spawning workers could be expensive.
 
+## Examples
+
+See [WorkerPool tests](./test/worker-pool.ts)
+
 ## License
 
 MIT

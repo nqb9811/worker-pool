@@ -3,7 +3,7 @@ import assert from 'node:assert';
 
 function shouldHaveEmptyState() {
     const q = new Queue<string>();
-    assert(q.size() === 0, 'New queue should be empty');
+    assert(q.len() === 0, 'New queue should be empty');
     assert(q.pop() === undefined, 'Pop on empty queue should return undefined');
     assert(q.peek() === undefined, 'Peek on empty queue should return undefined');
 }
@@ -13,7 +13,7 @@ function shouldPushItems() {
     q.push('a');
     q.push('b');
     q.push('c');
-    assert(q.size() === 3, 'Size should be 3 after pushes');
+    assert(q.len() === 3, 'Length should be 3 after pushes');
 }
 
 function shouldPopItems() {
@@ -21,10 +21,10 @@ function shouldPopItems() {
     q.push('a');
     q.push('b');
     q.push('c');
-    assert(q.size() === 3, 'Size should be 3 after pushes');
+    assert(q.len() === 3, 'Length should be 3 after pushes');
     assert(q.pop() === 'a', '1st pop should return a');
     assert(q.pop() === 'b', '2nd pop should return b');
-    assert(q.size() === 1, 'Size should be 1 after two pops');
+    assert(q.len() === 1, 'Length should be 1 after two pops');
 }
 
 function shouldPeekItems() {
@@ -32,10 +32,10 @@ function shouldPeekItems() {
     q.push('a');
     q.push('b');
     q.push('c');
-    assert(q.size() === 3, 'Size should be 3 after pushes');
+    assert(q.len() === 3, 'Length should be 3 after pushes');
     assert(q.peek() === 'a', '1st peek should return a');
     assert(q.peek() === 'a', '1st peek should still return a');
-    assert(q.size() === 3, 'Size should still be 3 after two peeks');
+    assert(q.len() === 3, 'Length should still be 3 after two peeks');
 }
 
 function shouldClearItems() {
@@ -43,9 +43,9 @@ function shouldClearItems() {
     q.push('a');
     q.push('b');
     q.push('c');
-    assert(q.size() === 3, 'Size should be 3 after pushes');
+    assert(q.len() === 3, 'Length should be 3 after pushes');
     q.clear();
-    assert(q.size() === 0, 'Size should still be 0 after clear');
+    assert(q.len() === 0, 'Length should still be 0 after clear');
     assert(q.peek() === undefined, 'Peek should return undefined after clear');
 }
 

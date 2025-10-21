@@ -5,8 +5,8 @@ export class PriorityQueue<T = any> {
 
     constructor(private compare: (a: T, b: T) => number) { }
 
-    /** Get number of items added to queue. */
-    public size() {
+    /** Get number of items in queue. */
+    public len() {
         return this.length;
     }
 

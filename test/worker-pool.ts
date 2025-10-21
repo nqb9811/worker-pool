@@ -281,6 +281,45 @@ async function shouldReplaceCrashedWorker() {
     }
 }
 
+async function shouldTrackCurrentPoolStats() {
+    if (!parentPort) {
+        const pool = new WorkerPool({
+            poolSize: 2,
+            workerPath: __filename,
+        });
+        let stats = pool.stats();
+        assert(stats.availableWorkers === 2, 'Available workers should be 2');
+        assert(stats.idleWorkers === 2, 'Idle workers should be 2');
+        assert(stats.runningTasks === 0, 'Running tasks should be 0');
+        assert(stats.queuedTasks === 0, 'Queued tasks should 0');
+        const task1Promise = pool.runTask({ type: 'ping', data: null });
+        stats = pool.stats();
+        assert(stats.availableWorkers === 2, 'Available workers should be 2');
+        assert(stats.idleWorkers === 1, 'Idle workers should be 1');
+        assert(stats.runningTasks === 1, 'Running tasks should be 0');
+        assert(stats.queuedTasks === 0, 'Queued tasks should 0');
+        const task2Promise = pool.runTask({ type: 'ping', data: null });
+        stats = pool.stats();
+        assert(stats.availableWorkers === 2, 'Available workers should be 2');
+        assert(stats.idleWorkers === 0, 'Idle workers should be 2');
+        assert(stats.runningTasks === 2, 'Running tasks should be 0');
+        assert(stats.queuedTasks === 0, 'Queued tasks should 0');
+        const task3Promise = pool.runTask({ type: 'ping', data: null });
+        stats = pool.stats();
+        assert(stats.availableWorkers === 2, 'Available workers should be 2');
+        assert(stats.idleWorkers === 0, 'Idle workers should be 2');
+        assert(stats.runningTasks === 2, 'Running tasks should be 0');
+        assert(stats.queuedTasks === 1, 'Queued tasks should 0');
+        await Promise.all([task1Promise, task2Promise, task3Promise]);
+        stats = pool.stats();
+        assert(stats.availableWorkers === 2, 'Available workers should be 2');
+        assert(stats.idleWorkers === 2, 'Idle workers should be 2');
+        assert(stats.runningTasks === 0, 'Running tasks should be 0');
+        assert(stats.queuedTasks === 0, 'Queued tasks should 0');
+        pool.close();
+    }
+}
+
 (async function main() {
     shouldInitWorker();
     shouldCreatePool();
@@ -291,6 +330,7 @@ async function shouldReplaceCrashedWorker() {
     await shouldThrowOnUnknownTask();
     await shouldAbortTask();
     await shouldReplaceCrashedWorker();
+    await shouldTrackCurrentPoolStats();
     if (!parentPort) {
         console.log('✅ All WorkerPool tests passed!');
     }

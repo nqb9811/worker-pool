@@ -4,8 +4,8 @@ export class Queue<T = any> {
     private length = 0;
     private head = 0;
 
-    /** Get number of items added to queue. */
-    public size() {
+    /** Get number of items in queue. */
+    public len() {
         return this.length;
     }
 

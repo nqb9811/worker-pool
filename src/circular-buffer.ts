@@ -10,9 +10,14 @@ export class CircularBuffer<T = any> {
         this.items.length = this.capacity = size;
     }
 
-    /** Get current buffer size. */
+    /** Get size of buffer. */
     public size() {
         return this.capacity;
+    }
+
+    /** Get number of items in buffer. */
+    public len() {
+        return this.length;
     }
 
     /** Check if buffer is full. */

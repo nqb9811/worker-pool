@@ -170,9 +170,9 @@ export class WorkerPool {
     public stats() {
         return {
             availableWorkers: this.workers.size,
-            idleWorkers: this.idleWorkers.size(),
+            idleWorkers: this.idleWorkers.len(),
             runningTasks: this.runningTasks.size,
-            queuedTasks: this.taskQueue.size(),
+            queuedTasks: this.taskQueue.len(),
             closed: this.closed,
         };
     }

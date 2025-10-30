@@ -1,18 +1,35 @@
 {
-    "name": "worker-pool",
-    "version": "1.0.0",
-    "main": "index.js",
+    "name": "@gyra/worker-pool",
+    "version": "1.0.1",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
     "scripts": {
         "test": "ts-node test/all.ts",
-        "benchmark": "ts-node benchmark/all.ts"
+        "benchmark": "ts-node benchmark/all.ts",
+        "build": "npx tsc -p tsconfig.build.json",
+        "prepublishOnly": "npm run build"
     },
-    "keywords": [],
+    "keywords": [
+        "Worker Thread",
+        "Thread Pool"
+    ],
     "author": {
         "name": "Bao Nguyen",
         "email": "nqb9811@gmail.com"
     },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/nqb9811/worker-pool.git"
+    },
+    "bugs": {
+        "url": "https://github.com/nqb9811/worker-pool/issues"
+    },
+    "homepage": "https://github.com/nqb9811/worker-pool#readme",
     "license": "MIT",
-    "description": "",
+    "description": "Minimal implementation of Node.js Worker Threads Pool",
     "devDependencies": {
         "@types/node": "^24.8.1",
         "ts-node": "^10.9.2"

@@ -68,10 +68,7 @@ async function shouldCompleteTasksWithoutPriority() {
         });
         const tasks: Task[] = [
             // First ping to make the worker busy
-            {
-                type: 'ping',
-                data: null,
-            },
+            { type: 'ping' },
             {
                 type: 'add',
                 data: { a: 2, b: 7 },
@@ -108,15 +105,12 @@ async function shouldCompleteTasksWithPriority() {
         const sentToWorkerTaskIndexes: number[] = [];
         const tasks: Task[] = [
             // First ping to make the worker busy
-            {
-                type: 'ping',
-                data: null,
-            },
+            { type: 'ping' },
             {
                 type: 'add',
                 data: { a: 2, b: 7 },
                 priority: 2,
-                onEvent: (event, data) => {
+                onEvent: (event) => {
                     if (event === 'sent to worker') {
                         sentToWorkerTaskIndexes.push(1);
                     }
@@ -126,7 +120,7 @@ async function shouldCompleteTasksWithPriority() {
                 type: 'add',
                 data: { a: 10, b: 8 },
                 priority: 3,
-                onEvent: (event, data) => {
+                onEvent: (event) => {
                     if (event === 'sent to worker') {
                         sentToWorkerTaskIndexes.push(2);
                     }
@@ -136,7 +130,7 @@ async function shouldCompleteTasksWithPriority() {
                 type: 'add',
                 data: { a: 18, b: 9 },
                 priority: 1,
-                onEvent: (event, data) => {
+                onEvent: (event) => {
                     if (event === 'sent to worker') {
                         sentToWorkerTaskIndexes.push(3);
                     }
@@ -170,7 +164,6 @@ async function shouldHandleTaskEvents() {
         const taskData: number[] = [];
         const result = await pool.runTask({
             type: 'event',
-            data: null,
             onEvent: (event, data) => {
                 if (event === 'progress') {
                     taskData.push(data);
@@ -193,11 +186,11 @@ async function shouldAcquireAndReleaseWorker() {
             workerPath: __filename,
         });
         // 1st task makes worker busy
-        const task1Promise = pool.runTask({ type: 'ping', data: null });
+        const task1Promise = pool.runTask({ type: 'ping' });
         // Acquiring worker waits for completed task
         const acquiringPromise = pool.acquireWorker();
         // 2nd task waits for released worker
-        const task2Promise = pool.runTask({ type: 'ping', data: null });
+        const task2Promise = pool.runTask({ type: 'ping' });
         acquiringPromise.then((worker) => setTimeout(() => {
             pool.releaseWorker(worker);
         }, 10));
@@ -214,13 +207,12 @@ async function shouldThrowOnUnknownTask() {
             workerPath: __filename,
         });
         try {
-            await pool.runTask({ type: 'unknown', data: null });
-            pool.close();
+            await pool.runTask({ type: 'unknown' });
             assert(false, 'Should throw unknown task error');
         } catch (error) {
-            pool.close();
             assert(/unknown/i.test(error?.message), 'Should throw unknown task error');
         }
+        pool.close();
     }
 }
 
@@ -234,18 +226,16 @@ async function shouldAbortTask() {
             const abortController = new AbortController();
             const promise = pool.runTask({
                 type: 'abort',
-                data: null,
                 abortSignal: abortController.signal,
             });
             await new Promise((resolve) => setTimeout(resolve, 10));
             abortController.abort();
             await promise;
-            pool.close();
-            assert(false, 'Should throw when aborting task');
+            assert(false, 'Should throw abort exception');
         } catch (error) {
-            pool.close();
-            assert(error instanceof AbortException, 'Should throw abort exception when aborting task');
+            assert(error instanceof AbortException, 'Should throw abort exception');
         }
+        pool.close();
     }
 }
 
@@ -256,7 +246,7 @@ async function shouldReplaceCrashedWorker() {
             workerPath: __filename,
         });
         try {
-            await pool.runTask({ type: 'crash', data: null });
+            await pool.runTask({ type: 'crash' });
             assert(false, 'Should throw crash error');
         } catch (error) {
             assert(pool.stats().availableWorkers === 0, 'Should remove crashed worker');
@@ -271,7 +261,6 @@ async function shouldReplaceCrashedWorker() {
             await new Promise((resolve) => setTimeout(resolve, 10));
             attempts++;
             if (attempts === 10) {
-                pool.close();
                 assert(false, 'Should replace crashed worker with a new one');
             }
         }
@@ -292,19 +281,19 @@ async function shouldTrackCurrentPoolStats() {
         assert(stats.idleWorkers === 2, 'Idle workers should be 2');
         assert(stats.runningTasks === 0, 'Running tasks should be 0');
         assert(stats.queuedTasks === 0, 'Queued tasks should 0');
-        const task1Promise = pool.runTask({ type: 'ping', data: null });
+        const task1Promise = pool.runTask({ type: 'ping' });
         stats = pool.stats();
         assert(stats.availableWorkers === 2, 'Available workers should be 2');
         assert(stats.idleWorkers === 1, 'Idle workers should be 1');
         assert(stats.runningTasks === 1, 'Running tasks should be 1');
         assert(stats.queuedTasks === 0, 'Queued tasks should 0');
-        const task2Promise = pool.runTask({ type: 'ping', data: null });
+        const task2Promise = pool.runTask({ type: 'ping' });
         stats = pool.stats();
         assert(stats.availableWorkers === 2, 'Available workers should be 2');
         assert(stats.idleWorkers === 0, 'Idle workers should be 0');
         assert(stats.runningTasks === 2, 'Running tasks should be 2');
         assert(stats.queuedTasks === 0, 'Queued tasks should 0');
-        const task3Promise = pool.runTask({ type: 'ping', data: null });
+        const task3Promise = pool.runTask({ type: 'ping' });
         stats = pool.stats();
         assert(stats.availableWorkers === 2, 'Available workers should be 2');
         assert(stats.idleWorkers === 0, 'Idle workers should be 0');
@@ -320,6 +309,115 @@ async function shouldTrackCurrentPoolStats() {
     }
 }
 
+async function shouldNotProcessAlreadyAbortedTask() {
+    if (!parentPort) {
+        const pool = new WorkerPool({
+            poolSize: 1,
+            workerPath: __filename,
+        });
+        // 1. Abort before submitting task
+        let abortController = new AbortController();
+        let taskSentToWorker = false;
+        abortController.abort();
+        try {
+            await pool.runTask({
+                type: 'ping',
+                abortSignal: abortController.signal,
+                onEvent: (event) => {
+                    if (event === 'sent to worker') {
+                        taskSentToWorker = true;
+                    }
+                },
+            });
+            assert(false, 'Should throw abort exception');
+        } catch (error) {
+            assert(error instanceof AbortException, 'Should throw abort exception');
+            assert(taskSentToWorker === false, 'Should not send already aborted task to worker');
+        }
+        // 2. Abort when task is still in queue
+        // 1st task makes worker busy
+        const task1Promise = pool.runTask({ type: 'ping' });
+        // Submit to enqueue the task
+        abortController = new AbortController();
+        taskSentToWorker = false;
+        const task2Promise = pool.runTask({
+            type: 'ping',
+            abortSignal: abortController.signal,
+            onEvent: (event) => {
+                if (event === 'sent to worker') {
+                    taskSentToWorker = true;
+                }
+            },
+        });
+        // Abort it
+        abortController.abort();
+        try {
+            await task2Promise;
+            assert(false, 'Should throw abort exception');
+        } catch (error) {
+            assert(error instanceof AbortException, 'Should throw abort exception');
+            assert(taskSentToWorker === false, 'Should not send already aborted task to worker');
+        }
+        await task1Promise;
+        pool.close();
+    }
+}
+
+async function shouldWaitForAvailableResource() {
+    if (!parentPort) {
+        const pool = new WorkerPool({
+            poolSize: 1,
+            workerPath: __filename,
+        });
+        const runs: string[] = [];
+        const task1Promise = pool.runTask({ type: 'ping' }).then(() => {
+            runs.push('task 1');
+        });
+        const task2Promise = pool.runTask({ type: 'ping' }).then(() => {
+            runs.push('task 2');
+        });
+        const promise1 = new Promise<void>((resolve) => {
+            pool.waitForAvailableResource().then(async () => {
+                runs.push('1st wait for resource');
+                await Promise.all([
+                    pool.runTask({ type: 'ping' }).then(() => {
+                        runs.push('task 3');
+                    }),
+                    pool.runTask({ type: 'ping' }).then(() => {
+                        runs.push('task 4');
+                    }),
+                ]);
+                resolve();
+            });
+        });
+        const promise2 = new Promise<void>((resolve) => {
+            pool.waitForAvailableResource().then(async () => {
+                runs.push('2nd wait for resource');
+                await Promise.all([
+                    pool.runTask({ type: 'ping' }).then(() => {
+                        runs.push('task 5');
+                    }),
+                    pool.runTask({ type: 'ping' }).then(() => {
+                        runs.push('task 6');
+                    }),
+                ]);
+                resolve();
+            });
+        });
+        await Promise.all([
+            task1Promise,
+            task2Promise,
+            promise1,
+            promise2,
+        ]);
+        assert(
+            runs.join('; ') === 'task 1; task 2; 1st wait for resource; task 3; task 4; 2nd wait for resource; task 5; task 6',
+            'Should run in correct order',
+        );
+        pool.close();
+    }
+}
+
 (async function main() {
     shouldInitWorker();
     shouldCreatePool();
@@ -331,6 +429,8 @@ async function shouldTrackCurrentPoolStats() {
     await shouldAbortTask();
     await shouldReplaceCrashedWorker();
     await shouldTrackCurrentPoolStats();
+    await shouldNotProcessAlreadyAbortedTask();
+    await shouldWaitForAvailableResource();
     if (!parentPort) {
         console.log('✅ All WorkerPool tests passed!');
     }

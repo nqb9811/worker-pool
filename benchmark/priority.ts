@@ -30,7 +30,7 @@ import { initWorker } from '../src/init-worker';
         await Promise.all(promises);
         const end = performance.now();
         const elapsed = end - start;
-        console.log('🚀 Priority - Task per second:', numTasks * 1e3 / elapsed);
+        console.log('🚀 Priority - Completed tasks per second:', numTasks * 1e3 / elapsed);
         pool.close();
     }
 })();

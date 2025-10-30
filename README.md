@@ -10,15 +10,17 @@ Auto replace crashed workers
 
 Handle task events
 
-Abort tasks (both async and sync)
+Abort both sync and async tasks
 
 Acquire workers for dedicated usage
 
 Track pool stats
 
+Wait for pool resource availability
+
 ## Notes
 
-No dynamic pool size. So far I do not think it is useful. Spawning workers could be expensive.
+No dynamic pool size. So far it seems unuseful. Spawning workers could be expensive.
 
 ## Examples
 

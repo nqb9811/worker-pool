@@ -26,6 +26,7 @@ export class WorkerPool {
         abort: () => void;
     }>();
     private closed = false;
+    private availableResourceResolvers = new Queue<PromiseResolvers<void>>();
 
     constructor(params: {
         poolSize: number;
@@ -79,6 +80,12 @@ export class WorkerPool {
             }
         }
 
+        if (task.abortSignal?.aborted) {
+            taskInfo.resolvers.reject(new AbortException());
+            this.taskRegistry.delete(task);
+            return taskInfo.resolvers.promise;
+        }
+
         let worker = acquiredWorker ?? this.idleWorkers.pop();
         if (worker) {
             this.runningTasks.add(task);
@@ -95,7 +102,7 @@ export class WorkerPool {
                 }, task.transferList);
 
                 if (task.onEvent) {
-                    task.onEvent('sent to worker', { task, worker });
+                    task.onEvent('sent to worker');
                 }
             } catch (error) {
                 this.runningTasks.delete(task);
@@ -104,12 +111,7 @@ export class WorkerPool {
                 taskInfo.resolvers.reject(error);
             }
         } else {
-            if (task.abortSignal?.aborted) {
-                taskInfo.resolvers.reject(new AbortException());
-                this.taskRegistry.delete(task);
-            } else {
-                this.taskQueue.push(task);
-            }
+            this.taskQueue.push(task);
         }
 
         return taskInfo.resolvers.promise;
@@ -155,15 +157,7 @@ export class WorkerPool {
         }
 
         this.acquiredWorkers.delete(worker);
-
-        const acquiringWorkerResolvers = this.acquiringWorkerResolvers.pop();
-        if (acquiringWorkerResolvers) {
-            acquiringWorkerResolvers.resolve(worker);
-            this.acquiredWorkers.add(worker);
-        } else {
-            this.idleWorkers.push(worker);
-            this.runQueuedTask();
-        }
+        this.onIdleWorker(worker);
     }
 
     /** Get current pool stats of workers and tasks. */
@@ -204,6 +198,22 @@ export class WorkerPool {
         }
 
         this.closed = true;
+    }
+
+    /** Wait until task queue is drained and there is at least one idle worker. */
+    public async waitForAvailableResource() {
+        if (this.closed) {
+            throw new Error('Pool closed');
+        }
+
+        if (this.idleWorkers.len()) {
+            return;
+        }
+
+        const resolvers = new PromiseResolvers<void>();
+        this.availableResourceResolvers.push(resolvers);
+
+        return resolvers.promise;
     }
 
     /** Add a new worker to pool, to initialize pool or replace an error worker. */
@@ -262,14 +272,7 @@ export class WorkerPool {
                     return;
                 }
 
-                const acquiringWorkerResolvers = this.acquiringWorkerResolvers.pop();
-                if (acquiringWorkerResolvers) {
-                    acquiringWorkerResolvers.resolve(worker);
-                    this.acquiredWorkers.add(worker);
-                } else {
-                    this.idleWorkers.push(worker);
-                    this.runQueuedTask();
-                }
+                this.onIdleWorker(worker);
             })
             .on('error', (error) => {
                 worker.terminate();
@@ -305,20 +308,27 @@ export class WorkerPool {
             });
 
         this.workers.add(worker);
-        this.idleWorkers.push(worker);
-        this.runQueuedTask();
+        this.onIdleWorker(worker);
     }
 
-    /** Run any queued task as soon as a worker becomes idle. */
-    private runQueuedTask() {
+    /** Decide what to do when a worker becomes idle. */
+    private onIdleWorker(worker: Worker) {
         if (this.closed) {
             return;
         }
 
+        const acquiringWorkerResolvers = this.acquiringWorkerResolvers.pop();
+        if (acquiringWorkerResolvers) {
+            acquiringWorkerResolvers.resolve(worker);
+            this.acquiredWorkers.add(worker);
+            return;
+        }
+
+        this.idleWorkers.push(worker);
         while (true) {
             const task = this.taskQueue.pop();
             if (!task) {
-                return;
+                break;
             }
 
             if (!this.taskRegistry.has(task)) {
@@ -327,6 +337,13 @@ export class WorkerPool {
 
             this.runTask(task);
             return;
+        }
+
+        if (this.idleWorkers.len()) {
+            const availableResourceResolvers = this.availableResourceResolvers.pop();
+            if (availableResourceResolvers) {
+                availableResourceResolvers.resolve();
+            }
         }
     }
 }

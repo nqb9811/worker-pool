@@ -5,13 +5,17 @@ export type Task = {
     /** Type of task to process. */
     type: string;
     /** Task input data. */
-    data: any;
+    data?: any;
     /** Optional task priority (lower is more prioritized, default 0). */
     priority?: number;
     /** Optional signal to handle task aborting. */
     abortSignal?: AbortSignal;
-    /** Optional handler for event emitted by worker when processing task. */
-    onEvent?: (event: string, data: any, transferList?: Transferable[]) => void;
+    /**
+     * Optional handler for event emitted by worker when processing task.
+     * There is a preserved event "sent to worker" with no data,
+     * emitted when the task is sent to worker.
+     */
+    onEvent?: (event: string, data?: any, transferList?: Transferable[]) => void;
     /** Data should be transfered to worker (not copy). */
     transferList?: Transferable[];
 };
@@ -30,10 +34,10 @@ export type WorkerTaskHandler = (params: {
     data: any;
     /**
      * Emit task-related event to main thread.
-     * There is one reserved event "sent to worker" emitted when task is sent to worker,
-     * with event data including the task itself and the worker which runs the task.
+     * There is a preserved event "sent to worker" with no data,
+     * emitted when the task is sent to worker.
      */
-    emitEvent: (event: string, data: any, transferList?: Transferable[]) => void;
+    emitEvent: (event: string, data?: any, transferList?: Transferable[]) => void;
     /**
      * Check if task is aborted by main thread and throw
      * (exception is then caught by main thread).

@@ -23,7 +23,7 @@ export function initWorker(handler: WorkerTaskHandler) {
             const sharedBuffer = msgPayload.sharedBuffer;
             const sharedBufferView = new Uint8Array(sharedBuffer);
 
-            const emitEvent = (event: string, data: any, transferList?: Transferable[]) => {
+            const emitEvent = (event: string, data?: any, transferList?: Transferable[]) => {
                 parentPort!.postMessage({
                     type: WorkerMessageType.EVENT,
                     payload: { event, data },

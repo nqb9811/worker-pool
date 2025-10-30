@@ -1,20 +1,20 @@
 {
-  "name": "worker-pool",
-  "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "test": "ts-node test/all.ts",
-    "benchmark": "ts-node benchmark/all.ts"
-  },
-  "keywords": [],
-  "author": {
-    "name": "Bao Nguyen",
-    "email": "nqb9811@gmail.com"
-  },
-  "license": "MIT",
-  "description": "",
-  "devDependencies": {
-    "@types/node": "^24.8.1",
-    "ts-node": "^10.9.2"
-  }
+    "name": "worker-pool",
+    "version": "1.0.0",
+    "main": "index.js",
+    "scripts": {
+        "test": "ts-node test/all.ts",
+        "benchmark": "ts-node benchmark/all.ts"
+    },
+    "keywords": [],
+    "author": {
+        "name": "Bao Nguyen",
+        "email": "nqb9811@gmail.com"
+    },
+    "license": "MIT",
+    "description": "",
+    "devDependencies": {
+        "@types/node": "^24.8.1",
+        "ts-node": "^10.9.2"
+    }
 }

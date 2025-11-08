@@ -9,7 +9,7 @@
     "scripts": {
         "test": "ts-node test/all.ts",
         "benchmark": "ts-node benchmark/all.ts",
-        "build": "npx tsc -p tsconfig.build.json",
+        "build": "tsc -p tsconfig.build.json",
         "prepublishOnly": "npm run build"
     },
     "keywords": [
@@ -32,6 +32,7 @@
     "description": "Minimal implementation of Node.js Worker Threads Pool",
     "devDependencies": {
         "@types/node": "^24.8.1",
-        "ts-node": "^10.9.2"
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3"
     }
 }

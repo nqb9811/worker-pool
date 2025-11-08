@@ -32,12 +32,12 @@ export class WorkerPool {
         poolSize: number;
         workerPath: string;
         workerOptions?: WorkerOptions;
-        usePriorityQueue?: boolean;
+        usePriorityTaskQueue?: boolean;
     }) {
         this.workerPath = params.workerPath;
         this.workerOptions = params.workerOptions ?? {};
         this.idleWorkers = new CircularBuffer(params.poolSize);
-        this.taskQueue = (params.usePriorityQueue ?? true)
+        this.taskQueue = params.usePriorityTaskQueue
             ? new PriorityQueue((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
             : new Queue();
         for (let i = 0; i < params.poolSize; i++) {

@@ -16,6 +16,7 @@ import { initWorker } from '../src/init-worker';
         const pool = new WorkerPool({
             poolSize: 4,
             workerPath: __filename,
+            usePriorityTaskQueue: true,
         });
         const numTasks = 1e6;
         const promises: Promise<number>[] = [];

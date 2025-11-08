@@ -45,12 +45,12 @@ function shouldCreatePool() {
             let pool = new WorkerPool({
                 poolSize: 2,
                 workerPath: __filename,
-                usePriorityQueue: false,
             });
             pool.close();
             pool = new WorkerPool({
                 poolSize: 4,
                 workerPath: __filename,
+                usePriorityTaskQueue: true,
             });
             pool.close();
         } catch (error) {
@@ -64,7 +64,6 @@ async function shouldCompleteTasksWithoutPriority() {
         const pool = new WorkerPool({
             poolSize: 1,
             workerPath: __filename,
-            usePriorityQueue: false,
         });
         const tasks: Task[] = [
             // First ping to make the worker busy
@@ -101,6 +100,7 @@ async function shouldCompleteTasksWithPriority() {
         const pool = new WorkerPool({
             poolSize: 1,
             workerPath: __filename,
+            usePriorityTaskQueue: true,
         });
         const sentToWorkerTaskIndexes: number[] = [];
         const tasks: Task[] = [
@@ -160,6 +160,7 @@ async function shouldHandleTaskEvents() {
         const pool = new WorkerPool({
             poolSize: 1,
             workerPath: __filename,
+            usePriorityTaskQueue: true,
         });
         const taskData: number[] = [];
         const result = await pool.runTask({
@@ -184,6 +185,7 @@ async function shouldAcquireAndReleaseWorker() {
         const pool = new WorkerPool({
             poolSize: 1,
             workerPath: __filename,
+            usePriorityTaskQueue: true,
         });
         // 1st task makes worker busy
         const task1Promise = pool.runTask({ type: 'ping' });
@@ -205,6 +207,7 @@ async function shouldThrowOnUnknownTask() {
         const pool = new WorkerPool({
             poolSize: 1,
             workerPath: __filename,
+            usePriorityTaskQueue: true,
         });
         try {
             await pool.runTask({ type: 'unknown' });
@@ -221,6 +224,7 @@ async function shouldAbortTask() {
         const pool = new WorkerPool({
             poolSize: 1,
             workerPath: __filename,
+            usePriorityTaskQueue: true,
         });
         try {
             const abortController = new AbortController();
@@ -244,6 +248,7 @@ async function shouldReplaceCrashedWorker() {
         const pool = new WorkerPool({
             poolSize: 1,
             workerPath: __filename,
+            usePriorityTaskQueue: true,
         });
         try {
             await pool.runTask({ type: 'crash' });
@@ -275,6 +280,7 @@ async function shouldTrackCurrentPoolStats() {
         const pool = new WorkerPool({
             poolSize: 2,
             workerPath: __filename,
+            usePriorityTaskQueue: true,
         });
         let stats = pool.stats();
         assert(stats.availableWorkers === 2, 'Available workers should be 2');
@@ -314,6 +320,7 @@ async function shouldNotProcessAlreadyAbortedTask() {
         const pool = new WorkerPool({
             poolSize: 1,
             workerPath: __filename,
+            usePriorityTaskQueue: true,
         });
         // 1. Abort before submitting task
         let abortController = new AbortController();
@@ -368,6 +375,7 @@ async function shouldWaitForAvailableResource() {
         const pool = new WorkerPool({
             poolSize: 1,
             workerPath: __filename,
+            usePriorityTaskQueue: true,
         });
         const runs: string[] = [];
         const task1Promise = pool.runTask({ type: 'ping' }).then(() => {

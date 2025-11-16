@@ -1,9 +1,7 @@
 import { Worker, WorkerOptions } from 'node:worker_threads';
-import { CircularBuffer } from './circular-buffer';
 import { Task, WorkerMessageType } from './worker-task-descriptor';
-import { Queue } from './queue';
-import { PriorityQueue } from './priority-queue';
 import { AbortException, PromiseResolvers } from '@gyra/utils';
+import { CircularBuffer, PriorityQueue, Queue } from '@gyra/struct';
 
 /** Pool of worker threads to run tasks in parallel in round-robin manner. */
 export class WorkerPool {

@@ -7,7 +7,7 @@
         "dist"
     ],
     "scripts": {
-        "test": "ts-node test/all.ts",
+        "test": "ts-node test/worker-pool.ts",
         "benchmark": "ts-node benchmark/all.ts",
         "build": "tsc -p tsconfig.build.json",
         "prepublishOnly": "npm run build"
@@ -36,6 +36,7 @@
         "typescript": "^5.9.3"
     },
     "dependencies": {
+        "@gyra/struct": "^1.0.5",
         "@gyra/utils": "^1.0.4"
     }
 }

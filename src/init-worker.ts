@@ -1,6 +1,6 @@
 import { parentPort, Transferable } from 'node:worker_threads';
 import { WorkerMessageType, WorkerTaskHandler } from './worker-task-descriptor';
-import { AbortException } from './abort-exception';
+import { AbortException } from '@gyra/utils';
 
 /** Init worker to run inside worker pool and handle tasks. */
 export function initWorker(handler: WorkerTaskHandler) {

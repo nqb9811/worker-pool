@@ -3,7 +3,7 @@ import { initWorker } from '../src/init-worker';
 import { parentPort } from 'node:worker_threads';
 import assert from 'node:assert';
 import { Task } from '../src/worker-task-descriptor';
-import { AbortException } from '../src/abort-exception';
+import { AbortException } from '@gyra/utils';
 
 function shouldInitWorker() {
     if (parentPort) {

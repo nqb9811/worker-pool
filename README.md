@@ -18,17 +18,9 @@ Track pool stats
 
 Wait for pool resource availability
 
-## Notes
-
-No dynamic pool size. So far it seems unuseful. Spawning workers could be expensive.
-
 ## Examples
 
 See [test/worker-pool.ts](./test/worker-pool.ts)
-
-## Benchmark
-
-See [benchmark/fifo.ts](./benchmark/fifo.ts) and [benchmark/priority.ts](./benchmark/priority.ts)
 
 ## License
 

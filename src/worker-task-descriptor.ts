@@ -42,7 +42,7 @@ export type WorkerTaskHandler = (params: {
      * Check if task is aborted by main thread and throw
      * (exception is then caught by main thread).
      */
-    assertAborted: () => void;
+    throwIfAborted: () => void;
 }) => TaskResult | Promise<TaskResult>;
 
 /** Internal type of message sent between main thread and worker. */

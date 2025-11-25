@@ -28,17 +28,17 @@ function benchmark(fn: () => void) {
 
     const sharedBuffer = new SharedArrayBuffer(1);
     const sharedBufferView = new Uint8Array(sharedBuffer);
-    const assertAborted = () => {
+    const throwIfAborted = () => {
         if (sharedBufferView[0] === 1) {
             throw new AbortException();
         }
     };
-    const assertAbortedOverhead = benchmark(() => {
+    const throwIfAbortedOverhead = benchmark(() => {
         for (let i = 0; i < 1e7; i++) {
             randomUUID();
-            assertAborted();
+            throwIfAborted();
         }
     });
 
-    console.log('🚀 Assert aborted overhead (%):', (assertAbortedOverhead - raw) * 100 / raw);
+    console.log('🚀 Assert aborted overhead (%):', (throwIfAbortedOverhead - raw) * 100 / raw);
 })();

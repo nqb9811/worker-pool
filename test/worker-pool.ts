@@ -8,7 +8,7 @@ import { AbortException } from '@gyra/utils';
 function shouldInitWorker() {
     if (parentPort) {
         try {
-            initWorker(async ({ type, data, emitEvent, assertAborted }) => {
+            initWorker(async ({ type, data, emitEvent, throwIfAborted }) => {
                 if (type === 'add') {
                     const { a, b } = data;
                     return { data: a + b };
@@ -18,7 +18,7 @@ function shouldInitWorker() {
                     return { data: 3 };
                 } else if (type === 'abort') {
                     while (true) {
-                        assertAborted();
+                        throwIfAborted();
                     }
                 } else if (type === 'crash') {
                     setTimeout(() => {

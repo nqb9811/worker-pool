@@ -30,7 +30,7 @@ export function initWorker(handler: WorkerTaskHandler) {
                 }, transferList);
             };
 
-            const assertAborted = () => {
+            const throwIfAborted = () => {
                 if (sharedBufferView[0] === 1) {
                     throw new AbortException();
                 }
@@ -40,7 +40,7 @@ export function initWorker(handler: WorkerTaskHandler) {
                 type,
                 data,
                 emitEvent,
-                assertAborted,
+                throwIfAborted,
             });
 
             parentPort!.postMessage({

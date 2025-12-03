@@ -18,7 +18,6 @@ function benchmark(fn: () => void) {
     return avg;
 }
 
-
 (function main() {
     const raw = benchmark(() => {
         for (let i = 0; i < 1e7; i++) {

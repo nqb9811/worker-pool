@@ -66,7 +66,6 @@ async function shouldCompleteTasksWithoutPriority() {
             workerPath: __filename,
         });
         const tasks: Task[] = [
-            // First ping to make the worker busy
             { type: 'ping' },
             {
                 type: 'add',
@@ -104,7 +103,6 @@ async function shouldCompleteTasksWithPriority() {
         });
         const sentToWorkerTaskIndexes: number[] = [];
         const tasks: Task[] = [
-            // First ping to make the worker busy
             { type: 'ping' },
             {
                 type: 'add',
@@ -187,16 +185,12 @@ async function shouldAcquireAndReleaseWorker() {
             workerPath: __filename,
             usePriorityTaskQueue: true,
         });
-        // 1st task makes worker busy
         const task1Promise = pool.runTask({ type: 'ping' });
-        // Acquiring worker waits for completed task
         const acquiringPromise = pool.acquireWorker();
-        // 2nd task waits for released worker
         const task2Promise = pool.runTask({ type: 'ping' });
         acquiringPromise.then((worker) => setTimeout(() => {
             pool.releaseWorker(worker);
         }, 10));
-        // All should resolve
         await Promise.all([task1Promise, acquiringPromise, task2Promise]);
         pool.close();
     }
@@ -322,7 +316,6 @@ async function shouldNotProcessAlreadyAbortedTask() {
             workerPath: __filename,
             usePriorityTaskQueue: true,
         });
-        // 1. Abort before submitting task
         let abortController = new AbortController();
         let taskSentToWorker = false;
         abortController.abort();
@@ -341,10 +334,7 @@ async function shouldNotProcessAlreadyAbortedTask() {
             assert(error instanceof AbortException, 'Should throw abort exception');
             assert(taskSentToWorker === false, 'Should not send already aborted task to worker');
         }
-        // 2. Abort when task is still in queue
-        // 1st task makes worker busy
         const task1Promise = pool.runTask({ type: 'ping' });
-        // Submit to enqueue the task
         abortController = new AbortController();
         taskSentToWorker = false;
         const task2Promise = pool.runTask({
@@ -356,7 +346,6 @@ async function shouldNotProcessAlreadyAbortedTask() {
                 }
             },
         });
-        // Abort it
         abortController.abort();
         try {
             await task2Promise;
@@ -426,6 +415,46 @@ async function shouldWaitForAvailableResource() {
     }
 }
 
+async function shouldAutoScalePool() {
+    if (!parentPort) {
+        const pool = new WorkerPool({
+            minPoolSize: 1,
+            maxPoolSize: 3,
+            workerPath: __filename,
+            autoShrinkIntervalTime: 20,
+        });
+        const promises: Promise<void>[] = [];
+        promises.push(
+            pool.runTask({ type: 'ping' }),
+            pool.runTask({ type: 'ping' }),
+            pool.runTask({ type: 'ping' }),
+        );
+        while (true) {
+            if (pool.stats().availableWorkers === 3) {
+                break;
+            }
+            await new Promise<void>((resolve) => setTimeout(resolve, 20));
+        }
+        while (true) {
+            if (pool.stats().availableWorkers === 2) {
+                break;
+            }
+            await new Promise<void>((resolve) => setTimeout(resolve, 20));
+        }
+        promises.push(
+            pool.runTask({ type: 'ping' }),
+        );
+        while (true) {
+            if (pool.stats().availableWorkers === 1) {
+                break;
+            }
+            await new Promise<void>((resolve) => setTimeout(resolve, 20));
+        }
+        await Promise.all(promises);
+        pool.close();
+    }
+}
+
 (async function main() {
     shouldInitWorker();
     shouldCreatePool();
@@ -439,6 +468,7 @@ async function shouldWaitForAvailableResource() {
     await shouldTrackCurrentPoolStats();
     await shouldNotProcessAlreadyAbortedTask();
     await shouldWaitForAvailableResource();
+    await shouldAutoScalePool();
     if (!parentPort) {
         console.log('✅ All WorkerPool tests passed!');
     }

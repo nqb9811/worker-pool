@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 function benchmark(fn: () => void) {
     const times: number[] = [];
 
-    fn(); // warn up
+    fn();
 
     for (let i = 0; i < 8; i++) {
         const start = performance.now();

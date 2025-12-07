@@ -1,10 +1,12 @@
 import { Worker, WorkerOptions } from 'node:worker_threads';
-import { Task, WorkerMessageType } from './worker-task-descriptor';
-import { AbortException, PromiseResolvers } from '@gyra/utils';
+import { Task, WorkerMessageType, WorkerPoolParams } from './worker-task-descriptor';
+import { AbortException, AsyncInterval, PromiseResolvers } from '@gyra/utils';
 import { CircularBuffer, PriorityQueue, Queue } from '@gyra/struct';
 
-/** Pool of worker threads to run tasks in parallel in round-robin manner. */
+/** Pool of worker threads to handle CPU-intensive tasks. Pool size can be fixed or dynamic. */
 export class WorkerPool {
+    private minPoolSize: number;
+    private maxPoolSize: number;
     private workerPath: string;
     private workerOptions: WorkerOptions;
     private workers = new Set<Worker>();
@@ -24,22 +26,33 @@ export class WorkerPool {
     }>();
     private closed = false;
     private availableResourceResolvers = new Queue<PromiseResolvers<void>>();
+    private autoShrinkInterval: AsyncInterval;
+    private replacingCrashedWorkerResolvers = new Set<PromiseResolvers<void>>();
 
-    constructor(params: {
-        poolSize: number;
-        workerPath: string;
-        workerOptions?: WorkerOptions;
-        usePriorityTaskQueue?: boolean;
-    }) {
+    constructor(params: WorkerPoolParams) {
+        if ('poolSize' in params) {
+            this.minPoolSize = this.maxPoolSize = params.poolSize;
+        } else {
+            this.minPoolSize = params.minPoolSize;
+            this.maxPoolSize = params.maxPoolSize;
+        }
+
         this.workerPath = params.workerPath;
         this.workerOptions = params.workerOptions ?? {};
-        this.idleWorkers = new CircularBuffer(params.poolSize);
+        this.idleWorkers = new CircularBuffer(this.maxPoolSize);
         this.taskQueue = params.usePriorityTaskQueue
             ? new PriorityQueue((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
             : new Queue();
-        for (let i = 0; i < params.poolSize; i++) {
+
+        for (let i = 0; i < this.minPoolSize; i++) {
             this.addNewWorker();
         }
+
+        this.autoShrinkInterval = new AsyncInterval(async () => {
+            await this.autoShrink();
+        }, params.autoShrinkIntervalTime ?? 5 * 60 * 1000);
+
+        this.autoShrinkInterval.start();
     }
 
     /**
@@ -47,6 +60,10 @@ export class WorkerPool {
      * to queue it to be run later when a worker becomes idle.
      */
     public async runTask(task: Task, acquiredWorker?: Worker): Promise<any> {
+        if (this.closed) {
+            throw new Error('Pool closed');
+        }
+
         let taskInfo = this.taskRegistry.get(task);
         if (!taskInfo) {
             const resolvers = new PromiseResolvers();
@@ -109,6 +126,7 @@ export class WorkerPool {
             }
         } else {
             this.taskQueue.push(task);
+            await this.autoGrow();
         }
 
         return taskInfo.resolvers.promise;
@@ -134,6 +152,7 @@ export class WorkerPool {
 
         const resolvers = new PromiseResolvers<Worker>();
         this.acquiringWorkerResolvers.push(resolvers);
+        await this.autoGrow();
 
         return resolvers.promise;
     }
@@ -194,6 +213,7 @@ export class WorkerPool {
             acquiringWorkerResolvers.reject(new Error('Pool closed'));
         }
 
+        this.autoShrinkInterval.stop();
         this.closed = true;
     }
 
@@ -209,11 +229,12 @@ export class WorkerPool {
 
         const resolvers = new PromiseResolvers<void>();
         this.availableResourceResolvers.push(resolvers);
+        await this.autoGrow();
 
         return resolvers.promise;
     }
 
-    /** Add a new worker to pool, to initialize pool or replace an error worker. */
+    /** Add a new worker to pool. */
     private addNewWorker() {
         if (this.closed) {
             return;
@@ -287,8 +308,12 @@ export class WorkerPool {
                     this.idleWorkers.push(worker);
                 }
 
+                const resolvers = new PromiseResolvers<void>();
+                this.replacingCrashedWorkerResolvers.add(resolvers);
                 setImmediate(() => {
                     this.addNewWorker();
+                    resolvers.resolve();
+                    this.replacingCrashedWorkerResolvers.delete(resolvers);
                 });
 
                 const task = this.runningTaskByWorker.get(worker);
@@ -306,6 +331,18 @@ export class WorkerPool {
 
         this.workers.add(worker);
         this.onIdleWorker(worker);
+    }
+
+    /** Remove a worker from pool, only when it is idle. */
+    private removeWorker() {
+        if (this.closed) {
+            return;
+        }
+        const worker = this.idleWorkers.pop();
+        if (worker) {
+            this.workers.delete(worker);
+            worker.terminate();
+        }
     }
 
     /** Decide what to do when a worker becomes idle. */
@@ -341,6 +378,44 @@ export class WorkerPool {
             if (availableResourceResolvers) {
                 availableResourceResolvers.resolve();
             }
+        }
+    }
+
+    /** Check and add a new worker to pool if required. */
+    private async autoGrow() {
+        if (this.closed) {
+            return;
+        }
+
+        for (const resolvers of this.replacingCrashedWorkerResolvers) {
+            await resolvers.promise;
+        }
+
+        const queuedTasks = this.taskQueue.len();
+        const totalWorkers = this.workers.size;
+        const idleWorkers = this.idleWorkers.len();
+
+        if (queuedTasks > 0 && totalWorkers < this.maxPoolSize && idleWorkers === 0) {
+            this.addNewWorker();
+        }
+    }
+
+    /** Check and remove an idle worker in low workload. */
+    private async autoShrink() {
+        if (this.closed) {
+            return;
+        }
+
+        for (const resolvers of this.replacingCrashedWorkerResolvers) {
+            await resolvers.promise;
+        }
+
+        const queuedTasks = this.taskQueue.len();
+        const totalWorkers = this.workers.size;
+        const idleWorkers = this.idleWorkers.len();
+
+        if (queuedTasks === 0 && totalWorkers > this.minPoolSize && idleWorkers > 1) {
+            this.removeWorker();
         }
     }
 }

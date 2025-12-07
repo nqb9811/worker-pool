@@ -1,3 +1,3 @@
-export { Task, TaskResult, WorkerTaskHandler } from './worker-task-descriptor';
-export { initWorker } from './init-worker';
-export { WorkerPool } from './worker-pool';
+export * from './worker-task-descriptor';
+export * from './init-worker';
+export * from './worker-pool';

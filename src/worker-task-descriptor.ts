@@ -51,3 +51,14 @@ export enum WorkerMessageType {
     EVENT = 'event',
     RESULT = 'result',
 };
+
+/** Parameters to initialize worker pool. */
+export type WorkerPoolParams = {
+    workerPath: string;
+    workerOptions?: WorkerOptions;
+    usePriorityTaskQueue?: boolean;
+    autoShrinkIntervalTime?: number;
+} & (
+        | { poolSize: number; }
+        | { minPoolSize: number; maxPoolSize: number; }
+    );

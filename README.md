@@ -18,6 +18,8 @@ Track pool stats
 
 Wait for pool resource availability
 
+Dynamic pool size
+
 ## Examples
 
 See [test/worker-pool.ts](./test/worker-pool.ts)

@@ -15,7 +15,7 @@ export type Task = {
      * There is a preserved event "sent to worker" with no data,
      * emitted when the task is sent to worker.
      */
-    onEvent?: (event: string, data?: any, transferList?: Transferable[]) => void;
+    onEvent?: (event: string, data?: any, transferList?: Transferable[]) => void | Promise<void>;
     /** Data should be transfered to worker (not copy). */
     transferList?: Transferable[];
 };

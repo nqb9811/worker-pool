@@ -1,29 +1,12 @@
-import { AbortException } from '@gyra/utils';
+import { AbortException, Benchmark } from '@gyra/utils';
 import { randomUUID } from 'node:crypto';
 
-function benchmark(fn: () => void) {
-    const times: number[] = [];
-
-    fn();
-
-    for (let i = 0; i < 8; i++) {
-        const start = performance.now();
-        fn();
-        const end = performance.now();
-        times.push(end - start);
-    }
-
-    const avg = times.reduce((a, b) => a + b, 0) / times.length;
-
-    return avg;
-}
-
-(function main() {
-    const raw = benchmark(() => {
-        for (let i = 0; i < 1e7; i++) {
+(async function main() {
+    const { avg: raw } = await new Benchmark(() => {
+        for (let i = 0; i < 1e6; i++) {
             randomUUID();
         }
-    });
+    }).run();
 
     const sharedBuffer = new SharedArrayBuffer(1);
     const sharedBufferView = new Uint8Array(sharedBuffer);
@@ -32,12 +15,18 @@ function benchmark(fn: () => void) {
             throw new AbortException();
         }
     };
-    const throwIfAbortedOverhead = benchmark(() => {
-        for (let i = 0; i < 1e7; i++) {
+
+    const { avg: throwIfAbortedOverhead } = await new Benchmark(() => {
+        for (let i = 0; i < 1e6; i++) {
             randomUUID();
             throwIfAborted();
         }
-    });
+    }).run();
 
-    console.log('🚀 Assert aborted overhead (%):', (throwIfAbortedOverhead - raw) * 100 / raw);
+    const percent = (throwIfAbortedOverhead! - raw!) * 100 / raw!;
+    if (percent >= 2) {
+        throw new Error(`throwIfAborted() has noticable overhead (%): ${percent}`);
+    }
+
+    console.log('🚀 throwIfAborted() overhead (%):', percent);
 })();

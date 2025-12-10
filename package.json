@@ -36,6 +36,6 @@
     },
     "dependencies": {
         "@gyra/struct": "^1.0.5",
-        "@gyra/utils": "^1.0.8"
+        "@gyra/utils": "^1.0.11"
     }
 }
